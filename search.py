@@ -1,5 +1,5 @@
 from collections import deque
-from typing import Set, List, Iterable, Dict
+from typing import Set, List, Iterable, Dict, Tuple
 
 from dataset import Row
 
@@ -7,7 +7,7 @@ from dataset import Row
 
 class Node:
 
-    def __init__(self, name, neighbours={}):
+    def __init__(self, name):
         self.name: str = name
         self.edges: List[Edge] = []
 
@@ -19,6 +19,7 @@ class Edge:
     def __init__(self, cost: float, from_to: tuple):
         self.cost: float = cost
         self.from_to: tuple = from_to
+        self.is_inverted: bool = False
     
     def __repr__(self):
         if self.from_to[0]:
@@ -41,61 +42,46 @@ class Graph:
         self.visited = set()
         self.frontier = deque([])
 
+        self._compile_visited = set()
         self._compile_frontier = deque([])
     
     def add(self, edge: Edge):
+        self.verticies_by_name.add(edge.from_to[1].name)
+
         if self.head == None:
             self.head = edge.from_to[1]
-            self.frontier = deque([self.head])
+            self.frontier = deque([edge])
 
             self.verticies.add(edge.from_to[1])
-            self.verticies_by_name.add(edge.from_to[1].name)
 
             node: Node = edge.from_to[1]
             node.edges.append(edge)
 
             self.path.append(self.head.name)
-            self.frontier.append(self.head)
+            self.frontier.append(edge)
             self._compile_frontier.append(self.head)
             
             return
         
+        self.verticies_by_name.add(edge.from_to[0].name)
+
         node: Node = edge.from_to[0]
         node.edges.append(edge)
+
+        invert = self._invert_edge(edge)
+        invert.is_inverted = True
+        edge.from_to[1].edges.append(invert)                   
 
         self.edges.add(edge)
         self.verticies.add(edge.from_to[0])
         self.verticies.add(edge.from_to[1])
 
-        self.verticies_by_name.add(edge.from_to[0].name)
-        self.verticies_by_name.add(edge.from_to[1].name)
     
-    def search(self, start: Node, target: str):
-        cur_node = start  # Just because of semantics
-        
-        if len(self.frontier) == 0:
-            return
-        
-        node = self.frontier.pop()
-        self.path.append(node.name)
-
-        if node.name == target:
-            return self.path
-        
-        self.visited.add(node)
-
-        for e in node.edges:
-            n = e.from_to[1]
-
-            if n not in self.frontier and n not in self.visited:
-                self.frontier.append(n)
-
-        self.search(node, target)
     
     # Depth-first compilation of all nodes
     def compile(self):
         node = self._compile_frontier.pop()
-        self.visited.add(node)
+        self._compile_visited.add(node)
 
         # Update graph
         self.graph.update({node.name: []})
@@ -108,13 +94,49 @@ class Graph:
         for e in node.edges:
             n = e.from_to[1]
 
-            if n not in self._compile_frontier and n not in self.visited:
-                self.frontier.append(n)
+            if n not in self._compile_frontier and n not in self._compile_visited:
+                self._compile_frontier.append(n)
 
         if len(self._compile_frontier) == 0:
             return
         
         self.compile()
 
+    def search(self, start: Node, target: str):
+        node = start
+        
+        if node.name == target:
+            return self.path
+        
+        self.visited.add(node)
+        
+        not_visited = []
+        for e in node.edges:
+            if e.from_to[1] not in self.visited:
+                not_visited.append(e)
+        
+        if len(not_visited) == 0:
+            return
+
+        edge, min_cost = self._min_node(not_visited)
+
+        self.path.append(min_cost.name)
+
+        self.search(min_cost, target)
+    
+    def _min_node(self, edges: List[Edge]) -> Tuple[Edge, Node]:
+        cur_max = None
+
+        for i in range(len(edges)):
+            if cur_max == None:
+                cur_max = edges[i]
+            else:
+                if edges[i].cost < cur_max.cost:
+                    cur_max = edges[i]
+        
+        return (cur_max, cur_max.from_to[1])
+    
+    def _invert_edge(self, edge: Edge):
+        return Edge(edge.cost, (edge.from_to[1], edge.from_to[0]))
 
 
