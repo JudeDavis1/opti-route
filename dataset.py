@@ -1,7 +1,8 @@
 import csv
 import time
+import numpy as np
 
-from typing import List
+from typing import *
 
 # Local
 import config
@@ -27,7 +28,7 @@ class Loader:
 
     def __init__(self, filename):
         self.filename = filename
-        self.dataset: List[Dataset] = []
+        self.dataset: List[Row] = []
     
     def compile(self):
         with open(self.filename) as f:
@@ -42,6 +43,26 @@ class Loader:
                 )
 
                 self.dataset.append(data)
+    
+    def build_graph(self):
+        raise NotImplementedError
+    
+    def _euclid_distance(self, p1: Tuple, p2: Tuple):
+        # Unpack points
+        lat1, long1 = p1
+        lat2, long2 = p2
+        R = config.EARTH_RAD  # Approx. radius of the earth
+
+        d_lat = np.deg2rad(lat2 - lat1)
+        d_long = np.deg2rad(long2 - long1)
+
+        d = 2 * R * np.arcsin(np.sqrt(
+            np.sin(d_lat / 2) ** 2
+            + np.cos(lat1) * np.cos(lat2)
+            * np.sin(d_long / 2) ** 2
+        ))
+
+        return d
 
 
 def test_loader():
