@@ -1,8 +1,7 @@
+import pickle
+
 from collections import deque
 from typing import Set, List, Iterable, Dict, Tuple
-
-from dataset import Row
-
 
 
 class Node:
@@ -80,50 +79,48 @@ class Graph:
     
     # Depth-first compilation of all nodes
     def compile(self):
-        node = self._compile_frontier.pop()
-        self._compile_visited.add(node)
+        while len(self._compile_frontier) != 0:
+            node = self._compile_frontier.pop()
+            self._compile_visited.add(node)
 
-        # Update graph
-        self.graph.update({node.name: []})
+            # Update graph
+            self.graph.update({node.name: []})
 
-        for edge in node.edges:
-            n = edge.from_to[1]
-            self.graph[node.name].append(n.name)
-        
-        # Update frontier
-        for e in node.edges:
-            n = e.from_to[1]
+            for edge in node.edges:
+                n = edge.from_to[1]
+                self.graph[node.name].append(n.name)
+            
+            # Update frontier
+            for e in node.edges:
+                n = e.from_to[1]
 
-            if n not in self._compile_frontier and n not in self._compile_visited:
-                self._compile_frontier.append(n)
+                if n not in self._compile_frontier and n not in self._compile_visited:
+                    self._compile_frontier.append(n)
 
-        if len(self._compile_frontier) == 0:
-            return
-        
-        self.compile()
 
     def search(self, start: Node, target: str):
         node = start
-        
-        if node.name == target:
-            return self.path
-        
-        self.visited.add(node)
-        
-        not_visited = []
-        for e in node.edges:
-            if e.from_to[1] not in self.visited:
-                not_visited.append(e)
-        
-        if len(not_visited) == 0:
-            return
+        while node.name != target:
+            self.visited.add(node)
+            
+            not_visited = []
+            for e in node.edges:
+                if e.from_to[1] not in self.visited and node.name != e.from_to[1].name:
+                    not_visited.append(e)
+            
+            if len(not_visited) == 0:
+                return
 
-        edge, min_cost = self._min_node(not_visited)
+            edge, node = self._min_node(not_visited)
+            self.path.append(node.name)
+        
+    def save(self, filename: str):
+        self.graph = {}
+        pickle.dump(self, open(filename + '.graph', 'wb'))
 
-        self.path.append(min_cost.name)
+    def load(self, filename) -> object:
+        return pickle.load(filename)
 
-        self.search(min_cost, target)
-    
     def _min_node(self, edges: List[Edge]) -> Tuple[Edge, Node]:
         cur_max = None
 
